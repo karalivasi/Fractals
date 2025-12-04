@@ -1,0 +1,128 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+
+def mandelbrot(c, max_iter):
+    """Вычисляет количество итераций для точки c в множестве Мандельброта"""
+    z = 0
+    for n in range(max_iter):
+        if abs(z) > 2:
+            return n
+        z = z*z + c
+    return max_iter
+
+def generate_mandelbrot(width, height, x_min, x_max, y_min, y_max, max_iter):
+    """Генерирует множество Мандельброта"""
+    x = np.linspace(x_min, x_max, width)
+    y = np.linspace(y_min, y_max, height)
+    X, Y = np.meshgrid(x, y)
+    C = X + 1j * Y
+    
+    mandelbrot_set = np.zeros(C.shape, dtype=int)
+    for i in range(width):
+        for j in range(height):
+            mandelbrot_set[j, i] = mandelbrot(C[j, i], max_iter)
+    
+    return mandelbrot_set
+
+def plot_mandelbrot():
+    """Основная функция для визуализации множества Мандельброта"""
+    
+    # Фиолетово-розовая цветовая схема
+    colors = [
+        (0.0, '#000000'),    # Черный
+        (0.1, '#2E0854'),    # Темно-фиолетовый
+        (0.3, '#8A2BE2'),    # Фиолетовый
+        (0.5, '#DA70D6'),    # Орхидея
+        (0.7, '#FF69B4'),    # Розовый
+        (1.0, '#FFB6C1')     # Светло-розовый
+    ]
+    cmap = LinearSegmentedColormap.from_list('purple_pink', colors)
+    
+    # Параметры по умолчанию
+    width, height = 800, 600  # Уменьшил разрешение для более быстрого выполнения
+    
+    print("ВИЗУАЛИЗАЦИЯ МНОЖЕСТВА МАНДЕЛЬБРОТА")
+    print("=" * 50)
+    
+    while True:
+        print("\nВыберите область для визуализации:")
+        print("1. Классический вид (полный обзор)")
+        print("2. Область вокруг 'шейки'")
+        print("3. Спиральные структуры")
+        print("4. Мини-Мандельброты")
+        print("5. Своя область")
+        print("6. Выход")
+        
+        choice = input("\nВаш выбор (1-6): ").strip()
+        
+        if choice == '1':
+            # Классический вид
+            x_min, x_max = -2.0, 1.0
+            y_min, y_max = -1.2, 1.2
+            title = "Множество Мандельброта - классический вид"
+            max_iter = 100
+        elif choice == '2':
+            # Область вокруг "шейки"
+            x_min, x_max = -0.75, -0.65
+            y_min, y_max = 0.1, 0.2
+            title = "Мандельброт: область вокруг 'шейки'"
+            max_iter = 200
+        elif choice == '3':
+            # Спиральные структуры
+            x_min, x_max = -0.1, 0.1
+            y_min, y_max = 0.6, 0.8
+            title = "Мандельброт: спиральные структуры"
+            max_iter = 200
+        elif choice == '4':
+            # Мини-Мандельброты
+            x_min, x_max = -1.78, -1.76
+            y_min, y_max = -0.02, 0.02
+            title = "Мандельброт: мини-копии"
+            max_iter = 300
+        elif choice == '5':
+            # Своя область
+            try:
+                x_min = float(input("x_min (рекомендуется -2.0): ") or "-2.0")
+                x_max = float(input("x_max (рекомендуется 1.0): ") or "1.0")
+                y_min = float(input("y_min (рекомендуется -1.2): ") or "-1.2")
+                y_max = float(input("y_max (рекомендуется 1.2): ") or "1.2")
+                title = f"Мандельброт: область [{x_min}, {x_max}] x [{y_min}, {y_max}]"
+            except ValueError:
+                print("Ошибка ввода! Используются значения по умолчанию.")
+                x_min, x_max = -2.0, 1.0
+                y_min, y_max = -1.2, 1.2
+                title = "Множество Мандельброта"
+            max_iter = 100
+        elif choice == '6':
+            print("Выход из программы.")
+            break
+        else:
+            print("Неверный выбор! Попробуйте снова.")
+            continue
+        
+        # Настройка максимального количества итераций
+        try:
+            user_max_iter = int(input(f"Максимальное число итераций (по умолчанию {max_iter}): ") or max_iter)
+            max_iter = user_max_iter
+        except ValueError:
+            print(f"Используется значение по умолчанию: {max_iter}")
+        
+        print(f"\nГенерация множества Мандельброта...")
+        print(f"Область: x=[{x_min}, {x_max}], y=[{y_min}, {y_max}]")print(f"Максимальное число итераций: {max_iter}")
+        
+        # Генерация и визуализация
+        mandel_set = generate_mandelbrot(width, height, x_min, x_max, y_min, y_max, max_iter)
+        
+        plt.figure(figsize=(12, 9))
+        plt.imshow(mandel_set, extent=[x_min, x_max, y_min, y_max], 
+                   cmap=cmap, origin='lower')
+        plt.colorbar(label='Количество итераций')
+        plt.title(f'{title}\n(max_iter={max_iter})', fontsize=14)
+        plt.xlabel('Re(c)')
+        plt.ylabel('Im(c)')
+        plt.tight_layout()
+        plt.show()
+
+if name == "__main__":
+    plot_mandelbrot()
