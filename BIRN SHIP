@@ -1,0 +1,111 @@
+"""
+УПРОЩЕННАЯ ВИЗУАЛИЗАЦИЯ ФРАКТАЛА "ГОРЯЩИЙ КОРАБЛЬ"
+Только чистая визуализация без лишних элементов
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import time
+
+def burning_ship_full(x_min=-3.0, x_max=2.0, 
+                      y_min=-2.5, y_max=1.5, 
+                      width=1200, height=900, 
+                      max_iter=256):
+    """
+    Генерация фрактала "Горящий корабль"
+    """
+    print(f"Генерация фрактала {width}x{height}...")
+    start_time = time.time()
+    
+    x = np.linspace(x_min, x_max, width)
+    y = np.linspace(y_min, y_max, height)
+    X, Y = np.meshgrid(x, y)
+    
+    C = X + 1j * Y
+    Z = np.zeros_like(C, dtype=np.complex128)
+    M = np.full(C.shape, max_iter, dtype=np.int32)
+    
+    for i in range(max_iter):
+        mask = M == max_iter
+        if not np.any(mask):
+            break
+        
+        Z_real = np.abs(Z[mask].real)
+        Z_imag = np.abs(Z[mask].imag)
+        Z[mask] = (Z_real + 1j * Z_imag) ** 2 + C[mask]
+        
+        escaped = mask & (np.abs(Z) > 2.0)
+        M[escaped] = i
+    
+    elapsed_time = time.time() - start_time
+    print(f"Фрактал сгенерирован за {elapsed_time:.2f} секунд")
+    
+    return M, x_min, x_max, y_min, y_max
+
+def main():
+    """Основная функция"""
+    print("\n" + "="*50)
+    print("ВИЗУАЛИЗАЦИЯ ФРАКТАЛА 'ГОРЯЩИЙ КОРАБЛЬ'")
+    print("="*50)
+    
+    # Настройки визуализации
+    print("1. Стандартный вид (рекомендуется)")
+    print("2. Высокая детализация (дольше)")
+    print("3. Ускоренная генерация")
+    print("\nВыберите режим (1-3, Enter для стандартного): ", end="")
+    
+    choice = input().strip()
+    
+    if choice == "2":
+        width, height, max_iter = 1600, 1200, 400
+    elif choice == "3":
+        width, height, max_iter = 800, 600, 150
+    else:
+        width, height, max_iter = 1200, 900, 256
+    
+    # Генерация фрактала
+    fractal, x_min, x_max, y_min, y_max = burning_ship_full(
+        width=width, height=height, max_iter=max_iter
+    )
+    
+    # Визуализация
+    plt.figure(figsize=(14, 10))
+    
+    # Цветовая карта огня
+    colors_fire = [(0, 0, 0), (0.5, 0, 0), (1, 0.3, 0), 
+                   (1, 0.8, 0.2), (1, 1, 0.8)]
+    
+    from matplotlib.colors import LinearSegmentedColormap
+    cmap_fire = LinearSegmentedColormap.from_list('fire', colors_fire)
+    
+    # Отрисовка
+    plt.imshow(fractal, cmap=cmap_fire, 
+               extent=[x_min, x_max, y_min, y_max],
+               origin='lower')
+    
+    plt.title('Фрактал "Горящий корабль"', fontsize=16, pad=20)
+    plt.xlabel('Re(c)', fontsize=12)
+    plt.ylabel('Im(c)', fontsize=12)
+    
+    # Без лишних элементов
+    plt.axis('on')
+    
+    # Сохранение
+    save = input("\nСохранить изображение? (y/n, Enter - нет): ").strip().lower()
+    if save == 'y':
+        filename = f"burning_ship_{width}x{height}_{max_iter}iter.png"
+        plt.savefig(filename, dpi=150, bbox_inches='tight')
+        print(f"Сохранено как {filename}")
+    
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    try:
+        import numpy as np
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("Ошибка: Установите библиотеки: pip install numpy matplotlib")
+        exit(1)
+    
+    main()
