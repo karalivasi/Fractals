@@ -1,0 +1,336 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import time
+from matplotlib.colors import LinearSegmentedColormap
+
+class JuliaSet:
+    def __init__(self):
+        self.setup_colormaps()
+    
+    def setup_colormaps(self):
+        """Создает различные цветовые схемы"""
+        self.colormaps = {
+            'blue_green': LinearSegmentedColormap.from_list('blue_green', [
+                (0.0, '#000000'), (0.2, '#001F3F'), (0.4, '#0074D9'),
+                (0.6, '#39CCCC'), (0.8, '#7FDBFF'), (1.0, '#FFFFFF')
+            ]),
+            'purple_pink': LinearSegmentedColormap.from_list('purple_pink', [
+                (0.0, '#000000'), (0.2, '#2E0854'), (0.4, '#8A2BE2'),
+                (0.6, '#DA70D6'), (0.8, '#FF69B4'), (1.0, '#FFB6C1')
+            ]),
+            'fire': LinearSegmentedColormap.from_list('fire', [
+                (0.0, '#000000'), (0.3, '#8B0000'), (0.6, '#FF4500'),
+                (0.8, '#FFD700'), (1.0, '#FFFFFF')
+            ]),
+            'forest': LinearSegmentedColormap.from_list('forest', [
+                (0.0, '#000000'), (0.3, '#006400'), (0.6, '#32CD32'),
+                (0.8, '#90EE90'), (1.0, '#FFFFFF')
+            ])
+        }
+    
+    def julia_basic(self, z, c, max_iter):
+        """Базовая версия вычисления Жюлиа"""
+        for n in range(max_iter):
+            if abs(z) > 2:
+                return n
+            z = z*z + c
+        return max_iter
+    
+    def julia_optimized(self, z, c, max_iter):
+        """Оптимизированная версия с меньшим количеством операций"""
+        for n in range(max_iter):
+            if z.real*z.real + z.imag*z.imag > 4:  # Быстрее чем abs(z) > 2
+                return n
+            z = z*z + c
+        return max_iter
+    
+    def generate_julia_basic(self, width, height, x_min, x_max, y_min, y_max, c, max_iter):
+        """Базовая версия генерации"""
+        x = np.linspace(x_min, x_max, width)
+        y = np.linspace(y_min, y_max, height)
+        julia_set = np.zeros((height, width), dtype=int)
+        
+        print("Базовая версия...")
+        start_time = time.time()
+        
+        for j in range(height):
+            for i in range(width):
+                z = x[i] + 1j * y[j]
+                julia_set[j, i] = self.julia_basic(z, c, max_iter)
+            
+            # Прогресс-бар
+            if height >= 10 and j % (height // 10) == 0:
+                progress = (j + 1) / height * 100
+                print(f"Прогресс: {progress:.0f}%")
+        
+        elapsed = time.time() - start_time
+        print(f"Время выполнения: {elapsed:.2f} сек")
+        return julia_set
+    
+    def generate_julia_vectorized(self, width, height, x_min, x_max, y_min, y_max, c, max_iter):
+        """Векторизованная версия (самая быстрая)"""
+        x = np.linspace(x_min, x_max, width)
+        y = np.linspace(y_min, y_max, height)
+        X, Y = np.meshgrid(x, y)
+        Z = X + 1j * Y
+        
+        julia_set = np.zeros(Z.shape, dtype=int)
+        mask = np.ones(Z.shape, dtype=bool)
+        
+        print("Векторизованная версия...")
+        start_time = time.time()
+        
+        for n in range(max_iter):
+            Z[mask] = Z[mask]**2 + c
+            new_mask = np.abs(Z) <= 2
+            julia_set += mask & (~new_mask) * n
+            mask = new_mask
+        
+        julia_set += mask * max_iter
+        elapsed = time.time() - start_time
+        print(f"Время выполнения: {elapsed:.2f} сек")
+        return julia_set
+    
+    def generate_julia_parallel(self, width, height, x_min, x_max, y_min, y_max, c, max_iter):
+        """Псевдо-параллельная версия с разбиением на блоки"""
+        x = np.linspace(x_min, x_max, width)
+        y = np.linspace(y_min, y_max, height)
+        julia_set = np.zeros((height, width), dtype=int)
+        
+        print("Параллельная версия (4 блока)...")
+        start_time = time.time()
+        
+        # Разбиваем на 4 блока для "параллельного" выполнения
+        block_height = height // 4
+        
+        for block in range(4):
+            start_row = block * block_height
+            end_row = start_row + block_height if block < 3 else height
+            
+            print(f"Блок {block + 1}/4...")
+            
+            for j in range(start_row, end_row):
+                for i in range(width):
+                    z = x[i] + 1j * y[j]
+                    julia_set[j, i] = self.julia_optimized(z, c, max_iter)
+        
+        elapsed = time.time() - start_time
+        print(f"Время выполнения: {elapsed:.2f} сек")
+        return julia_set
+    
+    def plot_julia(self, julia_set, x_min, x_max, y_min, y_max, c, max_iter, cmap_name='blue_green', title=""):
+        """Визуализация множества Жюлиа"""
+        plt.figure(figsize=(12, 10))
+        
+        plt.imshow(julia_set, extent=[x_min, x_max, y_min, y_max], 
+                   cmap=self.colormaps[cmap_name], origin='lower')
+        
+        plt.colorbar(label='Количество итераций', shrink=0.8)
+        
+        if not title:
+            title = f'Множество Жюлиа для c = {c.real:.7f} + {c.imag:.7f}i\n(max_iter={max_iter})'
+        
+        plt.title(title, fontsize=14, pad=20)
+        plt.xlabel('Re(z)')
+        plt.ylabel('Im(z)')
+        plt.tight_layout()
+        plt.show()
+
+def explore_julia_sets():
+    """Основная функция для исследования множеств Жюлиа"""
+    julia_calc = JuliaSet()
+    
+    # Библиотека интересных параметров c
+    interesting_c = {
+        '1': (-0.5251993 + 0.5251993j, "Красивый спиральный"),
+        '2': (-0.7 + 0.3j, "Классический Дендрайт"),
+        '3': (-0.4 + 0.6j, "Ветвистый"),
+        '4': (0.285 + 0.01j, "Связанный (почти Мандельброт)"),
+        '5': (-0.8 + 0.156j, "Пылевидный"),
+        '6': (-0.7269 + 0.1889j, "Сложная структура"),
+        '7': (-0.835 - 0.2321j, "Дракон"),
+        '8': (0.3 + 0.5j, "Облачный"),
+        '9': (-0.123 + 0.745j, "Знаменитый кролик"),
+        '10': (0.0 + 0.8j, "Круги")
+    }
+    
+    print("ИССЛЕДОВАТЕЛЬ МНОЖЕСТВ ЖЮЛИА")
+    print("=" * 60)
+    
+    while True:
+        print("\n" + "="*50)
+        print("МЕНЮ:")
+        print("1. Исследовать предустановленные параметры")
+        print("2. Свой параметр c")
+        print("3. Сравнить разные версии вычислений")
+        print("4. Построить галерею множеств Жюлиа")
+        print("5. Выход")
+        
+        choice = input("\nВаш выбор (1-5): ").strip()
+        
+        if choice == '1':
+            explore_preset_parameters(julia_calc, interesting_c)
+        elif choice == '2':
+            explore_custom_parameter(julia_calc)
+        elif choice == '3':
+            compare_versions(julia_calc)
+        elif choice == '4':
+            create_gallery(julia_calc, interesting_c)
+        elif choice == '5':
+            print("Выход из программы.")
+            break
+        else:
+            print("Неверный выбор! Попробуйте снова.")
+
+def explore_preset_parameters(julia_calc, interesting_c):
+    """Исследование предустановленных параметров"""
+    print("\nПРЕДУСТАНОВЛЕННЫЕ ПАРАМЕТРЫ:")
+    for key, (c_val, description) in interesting_c.items():
+        print(f"{key}. {description} (c = {c_val.real:.3f} + {c_val.imag:.3f}i)")
+    
+    choice = input("\nВыберите параметр (1-10): ").strip()
+    
+    if choice in interesting_c:
+        c, description = interesting_c[choice]
+        
+        # Настройки для разных типов множеств
+        if choice in ['1', '2', '3']:  # Красивые детализированные
+            width, height = 800, 800
+            max_iter = 200
+            x_min, x_max, y_min, y_max = -1.5, 1.5, -1.5, 1.5
+        elif choice in ['4', '9']:  # Связанные множества
+            width, height = 600, 600
+            max_iter = 150
+            x_min, x_max, y_min, y_max = -1.8, 1.8, -1.8, 1.8
+        else:  # Пылевидные и облачные
+            width, height = 500, 500
+            max_iter = 100
+            x_min, x_max, y_min, y_max = -2.0, 2.0, -2.0, 2.0
+        
+        # Выбор версии вычисления
+        print("\nВерсии вычисления:")
+        print("1. Базовая (медленная, но точная)")
+        print("2. Векторизованная (быстрая)")
+        print("3. Параллельная (для больших изображений)")
+        
+        version_choice = input("Выберите версию (1-3): ").strip() or "2"
+        
+        if version_choice == "1":
+            julia_set = julia_calc.generate_julia_basic(width, height, x_min, x_max, y_min, y_max, c, max_iter)
+        elif version_choice == "3":
+            julia_set = julia_calc.generate_julia_parallel(width, height, x_min, x_max, y_min, y_max, c, max_iter)
+        else:
+            julia_set = julia_calc.generate_julia_vectorized(width, height, x_min, x_max, y_min, y_max, c, max_iter)
+        
+        # Выбор цветовой схемы
+        print("\nЦветовые схемы:")
+        print("1. Сине-зеленая")
+        print("2. Фиолетово-розовая") 
+        print("3. Огненная")
+        print("4. Лесная")
+        
+        color_choice = input("Выберите схему (1-4): ").strip() or "1"
+        color_map = ['blue_green', 'purple_pink', 'fire', 'forest'][int(color_choice) - 1]
+        
+        julia_calc.plot_julia(julia_set, x_min, x_max, y_min, y_max, c, max_iter, color_map, description)
+
+def explore_custom_parameter(julia_calc):
+    """Исследование пользовательского параметра"""
+    print("\nСОБСТВЕННЫЙ ПАРАМЕТР")
+    
+    try:
+        real_part = float(input("Действительная часть c: ") or "-0.7")
+        imag_part = float(input("Мнимая часть c: ") or "0.3")
+        c = complex(real_part, imag_part)
+        
+        width = int(input("Ширина изображения (400-1000): ") or "600")
+        height = int(input("Высота изображения (400-1000): ") or "600")
+        max_iter = int(input("Максимальное число итераций (50-500): ") or "150")
+        
+        x_min = float(input("x_min: ") or "-1.5")
+        x_max = float(input("x_max: ") or "1.5")
+        y_min = float(input("y_min: ") or "-1.5")
+        y_max = float(input("y_max: ") or "1.5")
+        
+        print(f"\nПараметры:")
+        print(f"c = {real_part} + {imag_part}i")
+        print(f"Область: [{x_min}, {x_max}] x [{y_min}, {y_max}]")
+        print(f"Итерации: {max_iter}, Разрешение: {width}x{height}")
+        
+        julia_set = julia_calc.generate_julia_vectorized(width, height, x_min, x_max, y_min, y_max, c, max_iter)
+        julia_calc.plot_julia(julia_set, x_min, x_max, y_min, y_max, c, max_iter)
+        
+    except ValueError as e:
+        print(f"Ошибка ввода: {e}")
+
+def compare_versions(julia_calc):
+    """Сравнение производительности разных версий"""
+    print("\nСРАВНЕНИЕ ВЕРСИЙ ВЫЧИСЛЕНИЯ")
+    
+    c = -0.5251993 + 0.5251993j
+    width, height = 400, 400
+    max_iter = 100
+    x_min, x_max, y_min, y_max = -1.5, 1.5, -1.5, 1.5
+    
+    print("Тестовые параметры:")
+    print(f"c = {c.real:.7f} + {c.imag:.7f}i")
+    print(f"Разрешение: {width}x{height}, Итерации: {max_iter}")
+    print()
+    
+    # Сравниваем все версии
+    versions = [
+        ("Базовая", julia_calc.generate_julia_basic),
+        ("Векторизованная", julia_calc.generate_julia_vectorized),
+        ("Параллельная", julia_calc.generate_julia_parallel)
+    ]
+    
+    results = []
+    for name, func in versions:
+        print(f"Запуск {name} версии...")
+        result = func(width, height, x_min, x_max, y_min, y_max, c, max_iter)
+        results.append((name, result))
+    
+    # Показываем все результаты
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    
+    for idx, (name, julia_set) in enumerate(results):
+        axes[idx].imshow(julia_set, extent=[x_min, x_max, y_min, y_max], 
+                        cmap=julia_calc.colormaps['blue_green'], origin='lower')
+        axes[idx].set_title(f'{name} версия')
+        axes[idx].set_xlabel('Re(z)')
+        axes[idx].set_ylabel('Im(z)')
+    
+    plt.tight_layout()
+    plt.suptitle(f'Сравнение версий вычисления для c = {c.real:.7f} + {c.imag:.7f}i', y=1.02)
+    plt.show()
+
+def create_gallery(julia_calc, interesting_c):
+    """Создание галереи множеств Жюлиа"""
+    print("\nСОЗДАНИЕ ГАЛЕРЕИ")
+    
+    # Выбираем 6 самых интересных параметров
+    selected_keys = ['1', '2', '4', '5', '7', '9']
+    selected_params = {k: interesting_c[k] for k in selected_keys}
+    
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    axes = axes.flatten()
+    
+    print("Генерация галереи...")
+    
+    for idx, (key, (c, description)) in enumerate(selected_params.items()):
+        print(f"Вычисление {idx+1}/6: {description}")
+        
+        # Быстрая генерация для галереи
+        julia_set = julia_calc.generate_julia_vectorized(300, 300, -1.5, 1.5, -1.5, 1.5, c, 100)
+        
+        axes[idx].imshow(julia_set, extent=[-1.5, 1.5, -1.5, 1.5], 
+                        cmap=julia_calc.colormaps['blue_green'], origin='lower')
+        axes[idx].set_title(f'{description}\nc = {c.real:.3f} + {c.imag:.3f}i', fontsize=10)
+        axes[idx].axis('off')
+    
+    plt.tight_layout()
+    plt.suptitle('ГАЛЕРЕЯ МНОЖЕСТВ ЖЮЛИА', fontsize=16, y=0.98)
+    plt.show()
+
+if __name__ == "__main__":
+    explore_julia_sets()
